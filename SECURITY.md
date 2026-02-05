@@ -1,6 +1,6 @@
 # Security Policy
 
-We take security seriously. If you discover a vulnerability, please report it responsibly.
+We take security seriously. If you discover a vulnerability, please report it responsibly via GitHub Security Advisories.
 
 ## How to Report
 

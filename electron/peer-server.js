@@ -25,7 +25,7 @@ function readJsonBody(req, maxBytes = 1_000_000) {
   });
 }
 
-function startPeerServer({ port = DEFAULT_PORT } = {}) {
+function startPeerServer({ port = DEFAULT_PORT, maxAttempts = 10 } = {}) {
   const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -143,9 +143,25 @@ function startPeerServer({ port = DEFAULT_PORT } = {}) {
     res.end(JSON.stringify({ ok: false, error: 'Not found' }));
   });
 
-  server.listen(port, () => {
-    console.log(`AccessLM peer inference server listening on http://0.0.0.0:${port}`);
+  let attempt = 0;
+  const tryListen = (nextPort) => {
+    server.listen(nextPort, () => {
+      console.log(`AccessLM peer inference server listening on http://0.0.0.0:${nextPort}`);
+    });
+  };
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE' && attempt < maxAttempts) {
+      attempt += 1;
+      const nextPort = port + attempt;
+      console.warn(`Peer server port ${port} in use, retrying on ${nextPort}`);
+      tryListen(nextPort);
+      return;
+    }
+    console.error('Peer server error:', err);
   });
+
+  tryListen(port);
 
   return server;
 }

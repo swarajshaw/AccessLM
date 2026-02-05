@@ -30,6 +30,30 @@ const { spawn } = require('child_process');
 let currentRuntime = null;
 let currentModel = null;
 let p2pProcess = null;
+let peerServer = null;
+
+function findAvailablePort(startPort = 7331, maxAttempts = 10) {
+  const net = require('net');
+  return new Promise((resolve, reject) => {
+    let port = startPort;
+    const tryPort = () => {
+      const tester = net.createServer()
+        .once('error', () => {
+          port += 1;
+          if (port > startPort + maxAttempts) {
+            reject(new Error('No available port found'));
+          } else {
+            tryPort();
+          }
+        })
+        .once('listening', () => {
+          tester.close(() => resolve(port));
+        })
+        .listen(port, '0.0.0.0');
+    };
+    tryPort();
+  });
+}
 
 function sanitizeModelId(modelId) {
   return String(modelId || '')
@@ -183,9 +207,15 @@ const createWindow = () => {
 };
 
 // This method will be called when Electron has finished initialization
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   const mainWindow = createWindow();
-  startPeerServer();
+  try {
+    const port = await findAvailablePort(Number(process.env.ACCESSLM_PEER_PORT) || 7331);
+    process.env.ACCESSLM_PEER_PORT = String(port);
+    peerServer = startPeerServer({ port });
+  } catch (error) {
+    console.warn('Failed to start peer server:', error);
+  }
   p2pProcess = startP2PNode();
   setInterval(() => {
     refreshPeerHealth().catch(() => {});

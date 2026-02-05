@@ -3,6 +3,29 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const RELEASE_API = 'https://api.github.com/repos/swarajshaw/AccessLM/releases/latest';
+const FALLBACK_RELEASE_URL = 'https://github.com/swarajshaw/AccessLM/releases/tag/v0.0.1';
+const FALLBACK_ASSETS = [
+  {
+    name: 'AccessLM-0.0.1-arm64.dmg',
+    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.1/AccessLM-0.0.1-arm64.dmg',
+    platform: 'macOS (Apple Silicon)'
+  },
+  {
+    name: 'AccessLM-0.0.1.dmg',
+    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.1/AccessLM-0.0.1.dmg',
+    platform: 'macOS (Intel)'
+  },
+  {
+    name: 'AccessLM.Setup.0.0.1.exe',
+    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.1/AccessLM.Setup.0.0.1.exe',
+    platform: 'Windows (Installer)'
+  },
+  {
+    name: 'AccessLM.0.0.1.exe',
+    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.1/AccessLM.0.0.1.exe',
+    platform: 'Windows (Portable)'
+  }
+];
 
 function classifyAsset(asset) {
   const name = asset.name || '';
@@ -54,6 +77,8 @@ export default function DownloadsPage() {
       .sort((a, b) => a.platform.localeCompare(b.platform));
   }, [release]);
 
+  const fallbackAssets = useMemo(() => FALLBACK_ASSETS, []);
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-3xl mx-auto px-6 py-16">
@@ -62,10 +87,10 @@ export default function DownloadsPage() {
           Latest builds are pulled directly from GitHub Releases.
         </p>
 
-        {release?.html_url && (
+        {(release?.html_url || FALLBACK_RELEASE_URL) && (
           <a
             className="inline-flex items-center text-sm text-blue-700 hover:underline mb-8"
-            href={release.html_url}
+            href={release?.html_url || FALLBACK_RELEASE_URL}
             target="_blank"
             rel="noreferrer"
           >
@@ -80,7 +105,7 @@ export default function DownloadsPage() {
         )}
 
         <div className="space-y-4">
-          {assets.map((asset) => (
+          {(assets.length ? assets : fallbackAssets).map((asset) => (
             <div
               key={asset.url}
               className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between"

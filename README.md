@@ -19,7 +19,7 @@ This is not a startup. This is not a company. This is **a public good** — buil
 ## ✅ How to Use
 
 1. **Download** the latest version for your OS:
-   → [Releases](https://github.com/accesslm/accesslm/releases)
+   → [Releases](https://github.com/swarajshaw/AccessLM/releases)
 
 2. **Open** the app (no install needed)
 
@@ -89,8 +89,8 @@ Notes:
 
 ## 📬 Contribute
 
-Found a bug? Want to add a new feature? Open an issue or PR on GitHub:  
-👉 https://github.com/accesslm/accesslm
+Found a bug? Want to add a new feature? Open an issue or PR on GitHub:
+👉 https://github.com/swarajshaw/AccessLM
 
 This project belongs to everyone.
 

@@ -21,15 +21,15 @@ export default function Home() {
   const downloads = {
     mac: {
       label: 'Download for macOS (.dmg)',
-      file: 'AccessLM-2.1.0.dmg'
+      url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.1/AccessLM-0.0.1.dmg'
     },
     win: {
       label: 'Download for Windows (.exe)',
-      file: 'AccessLM-2.1.0.exe'
+      url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.1/AccessLM.Setup.0.0.1.exe'
     },
     linux: {
       label: 'Download for Linux (.deb)',
-      file: 'accesslm_2.1.0_amd64.deb'
+      url: 'https://github.com/swarajshaw/AccessLM/releases/tag/v0.0.1'
     }
   };
 
@@ -70,7 +70,9 @@ export default function Home() {
               <div className="mt-7 flex flex-wrap items-center gap-4">
                 <a
                   className="rounded-xl bg-white text-black px-6 py-3 text-sm font-semibold hover:bg-white/90"
-                  href={`/downloads/${downloads[osHint].file}`}
+                  href={downloads[osHint].url}
+                  target="_blank"
+                  rel="noreferrer"
                 >
                   {downloads[osHint].label}
                 </a>

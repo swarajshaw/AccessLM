@@ -3,10 +3,10 @@ if (!process.versions.electron || (process.type && process.type !== 'browser')) 
   process.exit(1);
 }
 
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { detectRuntimes, chooseRuntime, runPrompt, downloadFromHuggingFace } = require('./runtimes');
+const { detectRuntimes, chooseRuntime, runPrompt, downloadFromHuggingFace, listLocalModels, registerLocalModel, deleteLocalModel } = require('./runtimes');
 const { startPeerServer } = require('./peer-server');
 const {
   readPeers,
@@ -31,6 +31,156 @@ let currentRuntime = null;
 let currentModel = null;
 let p2pProcess = null;
 let peerServer = null;
+let llamaCppPyProcess = null;
+let llamaCppPyModel = null;
+let mlxProcess = null;
+let mlxModel = null;
+
+function commandExists(cmd) {
+  try {
+    const { spawnSync } = require('child_process');
+    const result = spawnSync('which', [cmd], { encoding: 'utf8' });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+function findPythonBin() {
+  if (process.env.ACCESSLM_PYTHON && commandExists(process.env.ACCESSLM_PYTHON)) {
+    return process.env.ACCESSLM_PYTHON;
+  }
+  const devBundled = path.join(__dirname, 'resources', 'python', 'bin', 'python3');
+  if (devBundled && fs.existsSync(devBundled)) {
+    return devBundled;
+  }
+  const bundledPython = path.join(process.resourcesPath || '', 'python', 'bin', 'python3');
+  if (bundledPython && fs.existsSync(bundledPython)) {
+    return bundledPython;
+  }
+  if (commandExists('python3')) return 'python3';
+  if (commandExists('python')) return 'python';
+  return null;
+}
+
+async function waitForServerReady(url, timeoutMs = 15000, allowNonOk = false) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(url, { method: 'GET' });
+      if (res.ok || allowNonOk) return true;
+    } catch {
+      // ignore and retry
+    }
+    await new Promise((r) => setTimeout(r, 800));
+  }
+  return false;
+}
+
+async function ensureLlamaCppPyServer(modelId) {
+  const registry = listLocalModels();
+  const modelEntry = registry[modelId];
+  const modelPath = typeof modelEntry === 'string' ? modelEntry : modelEntry?.path;
+  if (!modelPath) throw new Error('Model not downloaded or path not found for llama-cpp-python.');
+
+  if (llamaCppPyProcess && llamaCppPyModel === modelId) return;
+  if (llamaCppPyProcess) {
+    try { llamaCppPyProcess.kill(); } catch {}
+    llamaCppPyProcess = null;
+  }
+
+  const pythonBin = findPythonBin();
+  if (!pythonBin) throw new Error('Python not found. Install Python to use llama-cpp-python.');
+
+  try {
+    const { spawnSync } = require('child_process');
+    const probeEnv = {
+      ...process.env
+    };
+    if (pythonBin.includes('/python/bin/python3')) {
+      probeEnv.VIRTUAL_ENV = path.dirname(path.dirname(pythonBin));
+      probeEnv.PATH = `${path.dirname(pythonBin)}:${process.env.PATH || ''}`;
+    }
+    const probe = spawnSync(pythonBin, ['-c', 'import llama_cpp'], { encoding: 'utf8', env: probeEnv });
+    if (probe.status !== 0) {
+      const hint = 'llama-cpp-python not installed. Run: python3 -m pip install llama-cpp-python';
+      throw new Error(hint);
+    }
+  } catch (err) {
+    throw new Error(err.message || 'llama-cpp-python not installed.');
+  }
+
+  const port = await findAvailablePort(Number(process.env.ACCESSLM_LLAMA_CPP_PY_PORT) || 8001, 20);
+  process.env.ACCESSLM_LLAMA_CPP_PY_PORT = String(port);
+
+  const args = [
+    '-m',
+    'llama_cpp.server',
+    '--model',
+    modelPath,
+    '--host',
+    '127.0.0.1',
+    '--port',
+    String(port),
+    '--n_gpu_layers',
+    '-1'
+  ];
+
+  const env = {
+    ...process.env
+  };
+  if (pythonBin.includes('/python/bin/python3')) {
+    env.VIRTUAL_ENV = path.dirname(path.dirname(pythonBin));
+    env.PATH = `${path.dirname(pythonBin)}:${process.env.PATH || ''}`;
+  }
+  const proc = spawn(pythonBin, args, { stdio: 'inherit', env });
+  proc.on('exit', (code) => {
+    console.warn(`llama-cpp-python server exited with code ${code}`);
+    if (llamaCppPyProcess === proc) llamaCppPyProcess = null;
+  });
+  llamaCppPyProcess = proc;
+  llamaCppPyModel = modelId;
+
+  const ready = await waitForServerReady(`http://127.0.0.1:${port}/v1/models`, 20000, true);
+  if (!ready) {
+    throw new Error('llama-cpp-python server did not become ready in time.');
+  }
+}
+
+async function ensureMlxServer(modelId) {
+  if (mlxProcess && mlxModel === modelId) return;
+  if (mlxProcess) {
+    try { mlxProcess.kill(); } catch {}
+    mlxProcess = null;
+  }
+  const pythonBin = findPythonBin();
+  if (!pythonBin) throw new Error('Python not found. Install Python to use MLX.');
+
+  const port = await findAvailablePort(Number(process.env.ACCESSLM_MLX_PORT) || 8081, 20);
+  process.env.ACCESSLM_MLX_PORT = String(port);
+
+  const cmdOverride = process.env.ACCESSLM_MLX_SERVER_CMD;
+  let cmd = pythonBin;
+  let args = ['-m', 'mlx_lm.server', '--model', modelId, '--host', '127.0.0.1', '--port', String(port)];
+  if (cmdOverride) {
+    const parts = cmdOverride.split(' ').filter(Boolean);
+    cmd = parts.shift();
+    args = parts;
+  }
+
+  const proc = spawn(cmd, args, { stdio: 'inherit' });
+  proc.on('exit', (code) => {
+    console.warn(`MLX server exited with code ${code}`);
+    if (mlxProcess === proc) mlxProcess = null;
+  });
+  mlxProcess = proc;
+  mlxModel = modelId;
+
+  const ready = await waitForServerReady(`http://127.0.0.1:${port}/v1/models`, 60000, true);
+  if (!ready) {
+    throw new Error('MLX server did not become ready in time.');
+  }
+}
 
 function findAvailablePort(startPort = 7331, maxAttempts = 10) {
   const net = require('net');
@@ -98,11 +248,46 @@ function assertSafeInputPath(filePath) {
       throw new Error('Invalid model ID. Use owner/model format.');
     }
     const safeModelId = sanitizeModelId(rawModelId);
-    const result = await downloadFromHuggingFace(rawModelId);
+    if (options.runtime === 'mlx' || /-mlx/i.test(rawModelId)) {
+      registerLocalModel(rawModelId, { type: 'mlx', source: 'hf' });
+      event.sender.send('download-progress', { modelId: rawModelId, percent: 100, done: true });
+      return { ok: true, type: 'mlx', modelId: rawModelId, note: 'MLX model will be fetched on first run.' };
+    }
+    const result = await downloadFromHuggingFace(rawModelId, ({ received, total }) => {
+      const percent = total ? Math.round((received / total) * 100) : null;
+      event.sender.send('download-progress', {
+        modelId: rawModelId,
+        received,
+        total,
+        percent
+      });
+    });
     if (options.autoShard && result?.filePath) {
       await splitFileIntoShards(safeModelId, result.filePath, options.chunkSizeMB || 64);
     }
+    event.sender.send('download-progress', { modelId: rawModelId, percent: 100, done: true });
     return result;
+  });
+
+  ipcMain.handle('get-local-models', async () => {
+    return listLocalModels();
+  });
+
+  ipcMain.handle('delete-local-model', async (event, modelId) => {
+    return deleteLocalModel(modelId);
+  });
+
+  ipcMain.handle('import-local-model', async (event, modelId) => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'GGUF Models', extensions: ['gguf'] }]
+    });
+    if (canceled || !filePaths?.length) return { ok: false, canceled: true };
+    const filePath = filePaths[0];
+    const fallbackId = path.basename(filePath).replace(/\.gguf$/i, '');
+    const safeModelId = sanitizeModelId(modelId || fallbackId);
+    const registry = registerLocalModel(safeModelId, { path: filePath, type: 'gguf' });
+    return { ok: true, modelId: safeModelId, filePath, registry };
   });
 
 function findP2PBinary() {
@@ -208,7 +393,9 @@ const createWindow = () => {
     // In development or if production build doesn't exist, load from dev server
     const devUrl = process.env.ELECTRON_START_URL || 'http://localhost:3000/desktop';
     mainWindow.loadURL(devUrl);
-    mainWindow.webContents.openDevTools();
+    if (process.env.ACCESSLM_DEVTOOLS === '1') {
+      mainWindow.webContents.openDevTools();
+    }
   }
 
   return mainWindow;
@@ -242,7 +429,32 @@ app.whenReady().then(async () => {
       writeAnnouncedModels(detected);
 
       if (!currentRuntime) {
+        if (process.platform === 'darwin') {
+          try {
+            await ensureLlamaCppPyServer(safeModelId);
+            currentRuntime = 'llamaCppPy';
+          } catch (error) {
+            console.warn('Failed to start llama-cpp-python on macOS', error);
+          }
+        }
+      }
+      if (!currentRuntime) {
         return '⚠️ No local runtime detected. Install Ollama, LM Studio, vLLM, EXO, or llama.cpp.';
+      }
+
+      if (process.platform === 'darwin' && (currentRuntime === 'llamaCpp' || currentRuntime === 'auto')) {
+        try {
+          await ensureLlamaCppPyServer(safeModelId);
+          currentRuntime = 'llamaCppPy';
+        } catch (error) {
+          console.warn('Failed to start llama-cpp-python, falling back to llama.cpp', error);
+        }
+      }
+      if (currentRuntime === 'llamaCppPy') {
+        await ensureLlamaCppPyServer(safeModelId);
+      }
+      if (currentRuntime === 'mlx') {
+        await ensureMlxServer(safeModelId);
       }
 
       return `✅ Using ${currentRuntime}. Model ${modelId} ready.`;
@@ -303,18 +515,51 @@ app.whenReady().then(async () => {
   ipcMain.handle('send-message', async (event, modelId, message, features = {}) => {
     console.log(`Sending message to model ${modelId}: ${message}`, 'with features:', features);
 
-    const detected = await detectRuntimes();
+    let detected = null;
     if (!currentRuntime) {
+      detected = await detectRuntimes();
       currentRuntime = chooseRuntime(null, detected);
     }
 
-    const activeModel = modelId || currentModel || (detected[currentRuntime]?.models?.[0] || 'llama2');
+    const activeModel = modelId || currentModel || (detected?.[currentRuntime]?.models?.[0] || 'llama2');
     writeLookupModels([activeModel]);
 
     try {
+      const startTime = Date.now();
+      if (!currentRuntime && process.platform === 'darwin') {
+        try {
+          await ensureLlamaCppPyServer(activeModel);
+          currentRuntime = 'llamaCppPy';
+        } catch (error) {
+          console.warn('Failed to start llama-cpp-python on macOS', error);
+        }
+      }
       if (currentRuntime) {
+        if (process.platform === 'darwin' && (currentRuntime === 'llamaCpp' || currentRuntime === 'auto')) {
+          try {
+            await ensureLlamaCppPyServer(activeModel);
+            currentRuntime = 'llamaCppPy';
+          } catch (error) {
+            console.warn('Failed to start llama-cpp-python, falling back to llama.cpp', error);
+          }
+        }
+        if (currentRuntime === 'llamaCppPy') {
+          await ensureLlamaCppPyServer(activeModel);
+        }
+        if (currentRuntime === 'mlx') {
+          await ensureMlxServer(activeModel);
+        }
         const response = await runPrompt(currentRuntime, activeModel, message, features);
-        return response;
+        const latencyMs = Date.now() - startTime;
+        const tokens = String(response || '').trim().split(/\s+/).filter(Boolean).length;
+        return {
+          text: response,
+          meta: {
+            runtime: currentRuntime,
+            latencyMs,
+            tokens
+          }
+        };
       }
 
       let peers = await findPeersForModel(activeModel);
@@ -335,7 +580,16 @@ app.whenReady().then(async () => {
       if (bootstrapPeers.flat().length) {
         console.log('Bootstrap peers discovered:', bootstrapPeers.flat().length);
       }
-      return response;
+      const latencyMs = Date.now() - startTime;
+      const tokens = String(response || '').trim().split(/\s+/).filter(Boolean).length;
+      return {
+        text: response,
+        meta: {
+          runtime: currentRuntime || 'p2p',
+          latencyMs,
+          tokens
+        }
+      };
     } catch (error) {
       return `❌ Runtime error: ${error.message || error}`;
     }
@@ -505,6 +759,14 @@ app.on('window-all-closed', () => {
     if (p2pProcess) {
       p2pProcess.kill();
       p2pProcess = null;
+    }
+    if (llamaCppPyProcess) {
+      try { llamaCppPyProcess.kill(); } catch {}
+      llamaCppPyProcess = null;
+    }
+    if (mlxProcess) {
+      try { mlxProcess.kill(); } catch {}
+      mlxProcess = null;
     }
     app.quit();
   }

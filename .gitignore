@@ -17,3 +17,5 @@ README_files/
 client/.next.bak.*
 client/public/wasm/
 client/public/downloads/
+electron/resources/
+build/

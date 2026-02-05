@@ -153,7 +153,7 @@ export default function DesktopHome() {
       refreshNetwork();
       const intervalId = setInterval(() => {
         refreshNetwork();
-      }, 2000);
+      }, 5000);
       return () => clearInterval(intervalId);
     }
   }, []);
@@ -305,7 +305,7 @@ export default function DesktopHome() {
         ...prev,
         { id: aiId, role: "assistant", content: "" },
       ]);
-      const tokens = String(responseText || "").split(" ");
+      const tokens = String(responseText || "").match(/\S+\s*/g) || [];
       let index = 0;
       const interval = setInterval(() => {
         index += 1;

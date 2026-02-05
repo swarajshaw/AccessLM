@@ -79,8 +79,9 @@ async function waitForServerReady(url, timeoutMs = 15000, allowNonOk = false) {
 
 async function ensureLlamaCppPyServer(modelId) {
   const registry = listLocalModels();
-  const modelPath = registry[modelId];
-  if (!modelPath) throw new Error('Model not downloaded for llama-cpp-python.');
+  const modelEntry = registry[modelId];
+  const modelPath = typeof modelEntry === 'string' ? modelEntry : modelEntry?.path;
+  if (!modelPath) throw new Error('Model not downloaded or path not found for llama-cpp-python.');
 
   if (llamaCppPyProcess && llamaCppPyModel === modelId) return;
   if (llamaCppPyProcess) {

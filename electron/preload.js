@@ -22,6 +22,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearPreferredPeer: (modelId) => ipcRenderer.invoke('clear-preferred-peer', modelId),
   getCapabilities: () => ipcRenderer.invoke('get-capabilities'),
   clearCapabilities: () => ipcRenderer.invoke('clear-capabilities'),
+  createShards: (modelId, filePath, chunkSizeMB) =>
+    ipcRenderer.invoke('create-shards', modelId, filePath, chunkSizeMB),
+  listShards: (modelId) => ipcRenderer.invoke('list-shards', modelId),
+  assembleShards: (modelId, outputPath) => ipcRenderer.invoke('assemble-shards', modelId, outputPath),
+  syncShards: (modelId) => ipcRenderer.invoke('sync-shards', modelId),
+  ensureModelFromShards: (modelId, outputPath) =>
+    ipcRenderer.invoke('ensure-model-from-shards', modelId, outputPath),
   uploadFile: (file) => ipcRenderer.invoke('upload-file', file),
   recordVoice: () => ipcRenderer.invoke('record-voice'),
   uploadDocument: (file) => ipcRenderer.invoke('upload-document', file),

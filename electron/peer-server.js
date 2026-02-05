@@ -1,5 +1,7 @@
 const http = require('http');
+const fs = require('fs');
 const { detectRuntimes, chooseRuntime, runPrompt } = require('./runtimes');
+const { listShardsByModel, getShardById } = require('./shards');
 
 const DEFAULT_PORT = 7331;
 
@@ -74,6 +76,35 @@ function startPeerServer({ port = DEFAULT_PORT } = {}) {
         res.end(JSON.stringify({ ok: false, error: error.message || String(error) }));
       }
       return;
+    }
+
+    if (req.url && req.url.startsWith('/shards')) {
+      const url = new URL(req.url, 'http://localhost');
+      if (req.method === 'GET' && url.pathname === '/shards') {
+        const modelId = url.searchParams.get('modelId');
+        if (!modelId) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ ok: false, error: 'modelId is required' }));
+          return;
+        }
+        const shards = listShardsByModel(modelId);
+        res.writeHead(200);
+        res.end(JSON.stringify({ ok: true, shards }));
+        return;
+      }
+
+      if (req.method === 'GET' && url.pathname.startsWith('/shards/')) {
+        const shardId = decodeURIComponent(url.pathname.replace('/shards/', ''));
+        const shard = getShardById(shardId);
+        if (!shard) {
+          res.writeHead(404);
+          res.end(JSON.stringify({ ok: false, error: 'Shard not found' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/octet-stream' });
+        fs.createReadStream(shard.file).pipe(res);
+        return;
+      }
     }
 
     if (req.url === '/infer' && req.method === 'POST') {

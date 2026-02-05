@@ -7,6 +7,7 @@ const MODEL_INDEX_FILE = path.join(os.homedir(), '.accesslm', 'models', 'model_i
 const PINS_FILE = path.join(os.homedir(), '.accesslm', 'pins.json');
 const PREFERRED_FILE = path.join(os.homedir(), '.accesslm', 'preferred_peers.json');
 const CAPABILITIES_FILE = path.join(os.homedir(), '.accesslm', 'capabilities.json');
+const SHARD_CACHE_DIR = path.join(os.homedir(), '.accesslm', 'shards', 'cache');
 
 function readPeers() {
   try {
@@ -76,6 +77,11 @@ function writeCapabilities(capabilities) {
   } catch {
     // ignore
   }
+}
+
+function sha256Buffer(buffer) {
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
 function readPreferredPeers() {
@@ -320,6 +326,83 @@ async function sendRemotePrompt(peer, payload, timeoutMs = 8000) {
   }
 }
 
+async function fetchShardList(peer, modelId, timeoutMs = 5000) {
+  if (!peer?.ip) return [];
+  const url = `http://${peer.ip}:7331/shards?modelId=${encodeURIComponent(modelId)}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.ok ? data.shards || [] : [];
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function downloadShard(peer, shard, timeoutMs = 15000) {
+  const url = `http://${peer.ip}:${peer.port || 7331}/shards/${encodeURIComponent(shard.shardId)}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error('Failed to download shard');
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const digest = sha256Buffer(buffer);
+    if (shard.sha256 && digest !== shard.sha256) {
+      throw new Error('Shard integrity check failed');
+    }
+    const modelDir = path.join(SHARD_CACHE_DIR, shard.modelId.replace('/', '--'));
+    fs.mkdirSync(modelDir, { recursive: true });
+    const filePath = path.join(modelDir, `${shard.shardId}.bin`);
+    fs.writeFileSync(filePath, buffer);
+    return { filePath, sha256: digest };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function downloadMissingShards(peers, modelId) {
+  const shardsByPeer = [];
+  for (const peer of peers) {
+    const list = await fetchShardList(peer, modelId);
+    if (list.length) shardsByPeer.push({ peer, shards: list });
+  }
+  const allShards = shardsByPeer.flatMap((item) => item.shards);
+  const unique = new Map();
+  for (const shard of allShards) {
+    if (!unique.has(shard.shardId)) unique.set(shard.shardId, shard);
+  }
+  const needed = Array.from(unique.values());
+  const results = [];
+  for (const shard of needed) {
+    const source = shardsByPeer.find((item) =>
+      item.shards.find((s) => s.shardId === shard.shardId)
+    );
+    if (!source) continue;
+    try {
+      const res = await downloadShard(source.peer, shard);
+      results.push({ shardId: shard.shardId, filePath: res.filePath });
+    } catch {
+      // skip failed shard
+    }
+  }
+  return results;
+}
+
+function hasAllShards(modelId, requiredCount) {
+  const registry = require('./shards').readRegistry();
+  const shards = registry.shards.filter((s) => s.modelId === modelId);
+  if (!shards.length) return false;
+  if (requiredCount != null) return shards.length >= requiredCount;
+  const totals = new Set(shards.map((s) => s.total));
+  if (totals.size !== 1) return false;
+  return shards.length === shards[0].total;
+}
+
 async function sendRemotePromptWithFallback(peers, payload, modelId, retry = 2) {
   const preferred = modelId ? getPreferredPeer(modelId) : null;
   const prioritized = preferred
@@ -370,5 +453,9 @@ module.exports = {
   clearCapabilities,
   pickPeer,
   sendRemotePrompt,
-  sendRemotePromptWithFallback
+  sendRemotePromptWithFallback,
+  fetchShardList,
+  downloadShard,
+  downloadMissingShards,
+  hasAllShards
 };

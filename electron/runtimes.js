@@ -129,6 +129,12 @@ async function runPrompt(runtime, modelId, prompt, features = {}) {
   throw new Error('No runtime available.');
 }
 
+function sanitizeModelIdForPath(modelId) {
+  return String(modelId || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
 async function downloadFromHuggingFace(modelId) {
   const apiUrl = `https://huggingface.co/api/models/${modelId}`;
   const meta = await fetchJson(apiUrl, 5000);
@@ -139,13 +145,14 @@ async function downloadFromHuggingFace(modelId) {
     .filter((name) => name.endsWith('.gguf'));
 
   if (candidates.length === 0) {
-    throw new Error('No GGUF file found for this model.');
+    throw new Error('No GGUF file found for this model. Use a GGUF repo like *-GGUF.');
   }
 
   const preferred = candidates.find((n) => n.toLowerCase().includes('q4_k_m')) || candidates[0];
   const downloadUrl = `https://huggingface.co/${modelId}/resolve/main/${preferred}`;
 
-  const modelDir = path.join(os.homedir(), '.accesslm', 'models', modelId.replace('/', '--'));
+  const safeId = sanitizeModelIdForPath(modelId);
+  const modelDir = path.join(os.homedir(), '.accesslm', 'models', safeId);
   ensureDir(modelDir);
   const filePath = path.join(modelDir, preferred);
 

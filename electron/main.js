@@ -92,14 +92,18 @@ function assertSafeInputPath(filePath) {
   return resolved;
 }
 
-ipcMain.handle('download-model', async (event, modelId, options = {}) => {
-  const safeModelId = sanitizeModelId(modelId);
-  const result = await downloadFromHuggingFace(safeModelId);
-  if (options.autoShard && result?.filePath) {
-    await splitFileIntoShards(safeModelId, result.filePath, options.chunkSizeMB || 64);
-  }
-  return result;
-});
+  ipcMain.handle('download-model', async (event, modelId, options = {}) => {
+    const rawModelId = String(modelId || '').trim();
+    if (!/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(rawModelId)) {
+      throw new Error('Invalid model ID. Use owner/model format.');
+    }
+    const safeModelId = sanitizeModelId(rawModelId);
+    const result = await downloadFromHuggingFace(rawModelId);
+    if (options.autoShard && result?.filePath) {
+      await splitFileIntoShards(safeModelId, result.filePath, options.chunkSizeMB || 64);
+    }
+    return result;
+  });
 
 function findP2PBinary() {
   const candidates = [

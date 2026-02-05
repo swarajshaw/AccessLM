@@ -13,7 +13,7 @@ AccessLM enables running large language models on any device through a peer-to-p
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/accesslm/accesslm.git
+git clone https://github.com/swarajshaw/AccessLM.git
 cd accesslm
 ```
 

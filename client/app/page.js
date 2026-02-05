@@ -154,7 +154,7 @@ export default function Home() {
               <a className="rounded-lg border border-white/20 px-4 py-2 hover:border-white/40" href="/downloads">
                 Download the app
               </a>
-              <a className="rounded-lg border border-white/20 px-4 py-2 hover:border-white/40" href="https://github.com/accesslm/accesslm">
+              <a className="rounded-lg border border-white/20 px-4 py-2 hover:border-white/40" href="https://github.com/swarajshaw/AccessLM">
                 Open-source code
               </a>
               <a className="rounded-lg border border-white/20 px-4 py-2 hover:border-white/40" href="/privacy">
@@ -245,7 +245,7 @@ export default function Home() {
             <a className="rounded-xl bg-white text-black px-6 py-3 text-sm font-semibold hover:bg-white/90" href="/downloads">
               Get AccessLM
             </a>
-            <a className="rounded-xl border border-white/20 px-6 py-3 text-sm font-semibold text-white/90 hover:border-white/40" href="https://github.com/accesslm/accesslm">
+            <a className="rounded-xl border border-white/20 px-6 py-3 text-sm font-semibold text-white/90 hover:border-white/40" href="https://github.com/swarajshaw/AccessLM">
               View source
             </a>
           </div>

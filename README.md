@@ -2,6 +2,8 @@
 
 > _"I ran Llama 3 70B on my 8GB laptop. No GPU. No credit card. Just AccessLM."_
 
+<img width="1140" height="862" alt="image" src="https://github.com/user-attachments/assets/7491e9fb-1375-4f29-a42a-ac2d98cff83f" />
+
 AccessLM lets you run large language models — like Llama 3, Mistral, and Phi-3 — **on any device**, even a 10-year-old laptop with 8GB RAM.
 
 No signup. No cloud. No payment. No tracking.

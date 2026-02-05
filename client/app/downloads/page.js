@@ -1,67 +1,106 @@
-import fs from 'fs';
-import path from 'path';
+'use client';
 
-const downloads = [
-  {
-    platform: 'macOS (Apple Silicon)',
-    file: 'AccessLM-2.1.0-arm64.dmg'
-  },
-  {
-    platform: 'macOS (Intel)',
-    file: 'AccessLM-2.1.0.dmg'
-  },
-  {
-    platform: 'Windows',
-    file: 'AccessLM-2.1.0.exe'
-  },
-  {
-    platform: 'Linux',
-    file: 'accesslm_2.1.0_amd64.deb'
+import { useEffect, useMemo, useState } from 'react';
+
+const RELEASE_API = 'https://api.github.com/repos/swarajshaw/AccessLM/releases/latest';
+
+function classifyAsset(asset) {
+  const name = asset.name || '';
+  if (name.includes('arm64') && name.endsWith('.dmg')) {
+    return 'macOS (Apple Silicon)';
   }
-];
-
-function isAvailable(file) {
-  const filePath = path.join(process.cwd(), 'public', 'downloads', file);
-  return fs.existsSync(filePath);
+  if (name.endsWith('.dmg')) {
+    return 'macOS (Intel)';
+  }
+  if (name.toLowerCase().includes('setup') && name.endsWith('.exe')) {
+    return 'Windows (Installer)';
+  }
+  if (name.endsWith('.exe')) {
+    return 'Windows (Portable)';
+  }
+  if (name.endsWith('.zip') && name.includes('mac')) {
+    return 'macOS (ZIP)';
+  }
+  return 'Other';
 }
 
 export default function DownloadsPage() {
-  const items = downloads.map((item) => ({
-    ...item,
-    available: isAvailable(item.file)
-  }));
+  const [release, setRelease] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch(RELEASE_API)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.message) {
+          setError(data.message);
+          return;
+        }
+        setRelease(data);
+      })
+      .catch((err) => setError(err.message || 'Failed to load release data.'));
+  }, []);
+
+  const assets = useMemo(() => {
+    if (!release?.assets) return [];
+    return release.assets
+      .filter((asset) => asset?.browser_download_url)
+      .map((asset) => ({
+        name: asset.name,
+        url: asset.browser_download_url,
+        size: asset.size,
+        platform: classifyAsset(asset)
+      }))
+      .sort((a, b) => a.platform.localeCompare(b.platform));
+  }, [release]);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-3xl font-bold mb-4">Downloads</h1>
-        <p className="text-gray-600 mb-8">
-          Choose the installer for your platform.
+        <p className="text-gray-600 mb-4">
+          Latest builds are pulled directly from GitHub Releases.
         </p>
 
+        {release?.html_url && (
+          <a
+            className="inline-flex items-center text-sm text-blue-700 hover:underline mb-8"
+            href={release.html_url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View latest release on GitHub
+          </a>
+        )}
+
+        {error && (
+          <div className="mb-6 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
         <div className="space-y-4">
-          {items.map((item) => (
-            <div key={item.file} className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+          {assets.map((asset) => (
+            <div
+              key={asset.url}
+              className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between"
+            >
               <div>
-                <div className="font-medium">{item.platform}</div>
-                <div className="text-sm text-gray-500">{item.file}</div>
+                <div className="font-medium">{asset.platform}</div>
+                <div className="text-sm text-gray-500">{asset.name}</div>
               </div>
-              {item.available ? (
-                <a
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
-                  href={`/downloads/${item.file}`}
-                >
-                  Download
-                </a>
-              ) : (
-                <div className="text-sm text-gray-500">Not available yet</div>
-              )}
+              <a
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
+                href={asset.url}
+              >
+                Download
+              </a>
             </div>
           ))}
-        </div>
 
-        <div className="mt-8 text-sm text-gray-500">
-          If a file shows “Not available yet”, it hasn’t been added to `client/public/downloads/`.
+          {!assets.length && !error && (
+            <div className="text-sm text-gray-500">Loading latest release assets...</div>
+          )}
         </div>
       </div>
     </div>

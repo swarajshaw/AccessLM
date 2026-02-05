@@ -130,6 +130,8 @@ export default function DownloadsPage() {
               <a
                 className="px-4 py-2 rounded-full bg-[#22d3ee] text-black text-sm font-semibold hover:bg-[#1dbfd6]"
                 href={asset.url}
+                target="_blank"
+                rel="noreferrer"
               >
                 Download
               </a>

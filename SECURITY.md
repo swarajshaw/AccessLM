@@ -4,8 +4,7 @@ We take security seriously. If you discover a vulnerability, please report it re
 
 ## How to Report
 
-Email: security@accesslm.org  
-PGP Key: https://github.com/swarajshaw/AccessLM/raw/main/accesslm.asc
+Please open a GitHub Security Advisory or file a private issue with steps to reproduce.
 
 ## What to Include
 

@@ -3,26 +3,26 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const RELEASE_API = 'https://api.github.com/repos/swarajshaw/AccessLM/releases/latest';
-const FALLBACK_RELEASE_URL = 'https://github.com/swarajshaw/AccessLM/releases/tag/v0.0.1';
+const FALLBACK_RELEASE_URL = 'https://github.com/swarajshaw/AccessLM/releases/tag/v0.0.2';
 const FALLBACK_ASSETS = [
   {
-    name: 'AccessLM-0.0.1-arm64.dmg',
-    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.1/AccessLM-0.0.1-arm64.dmg',
+    name: 'AccessLM-0.0.2-arm64.dmg',
+    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.2/AccessLM-0.0.2-arm64.dmg',
     platform: 'macOS (Apple Silicon)'
   },
   {
-    name: 'AccessLM-0.0.1.dmg',
-    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.1/AccessLM-0.0.1.dmg',
+    name: 'AccessLM-0.0.2.dmg',
+    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.2/AccessLM-0.0.2.dmg',
     platform: 'macOS (Intel)'
   },
   {
-    name: 'AccessLM.Setup.0.0.1.exe',
-    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.1/AccessLM.Setup.0.0.1.exe',
+    name: 'AccessLM.Setup.0.0.2.exe',
+    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.2/AccessLM.Setup.0.0.2.exe',
     platform: 'Windows (Installer)'
   },
   {
-    name: 'AccessLM.0.0.1.exe',
-    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.1/AccessLM.0.0.1.exe',
+    name: 'AccessLM.0.0.2.exe',
+    url: 'https://github.com/swarajshaw/AccessLM/releases/download/v0.0.2/AccessLM.0.0.2.exe',
     platform: 'Windows (Portable)'
   }
 ];

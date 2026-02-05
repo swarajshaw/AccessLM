@@ -1,6 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const net = require('net');
 
 const PEERS_FILE = path.join(os.homedir(), '.accesslm', 'peers.json');
 const MODEL_INDEX_FILE = path.join(os.homedir(), '.accesslm', 'models', 'model_index.json');
@@ -145,8 +146,21 @@ function scorePeer(peer) {
   return Math.max(0, latencyScore + ok * 10 - failurePenalty);
 }
 
+function isAllowedPeerIp(ip) {
+  if (!ip || net.isIP(ip) === 0) return false;
+  if (ip.startsWith('127.') || ip === '::1') return false;
+  if (ip.startsWith('169.254.')) return false;
+  if (ip.startsWith('0.')) return false;
+  return true;
+}
+
+function normalizePeer(peer) {
+  if (!peer?.ip || !isAllowedPeerIp(peer.ip)) return null;
+  return peer;
+}
+
 async function checkPeerHealth(peer, timeoutMs = 1500) {
-  if (!peer?.ip) return { ok: false };
+  if (!normalizePeer(peer)) return { ok: false };
   const url = `http://${peer.ip}:7331/health`;
   const controller = new AbortController();
   const start = Date.now();
@@ -166,7 +180,7 @@ async function checkPeerHealth(peer, timeoutMs = 1500) {
 }
 
 async function refreshPeerHealth() {
-  const peers = readPeers();
+  const peers = readPeers().map(normalizePeer).filter(Boolean);
   if (!peers.length) return [];
   const pins = readPins();
   const capabilities = readCapabilities();
@@ -234,7 +248,7 @@ function parseModelIndexPeers(modelIndex, modelId) {
 }
 
 async function fetchPeerModels(peer, timeoutMs = 2500) {
-  if (!peer?.ip) return null;
+  if (!normalizePeer(peer)) return null;
   const url = `http://${peer.ip}:7331/models`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -252,7 +266,7 @@ async function fetchPeerModels(peer, timeoutMs = 2500) {
 }
 
 async function fetchBootstrap(peer, timeoutMs = 2500) {
-  if (!peer?.ip) return [];
+  if (!normalizePeer(peer)) return [];
   const url = `http://${peer.ip}:7331/bootstrap`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -269,7 +283,7 @@ async function fetchBootstrap(peer, timeoutMs = 2500) {
 }
 
 async function relayBootstrap() {
-  const peers = readPeers();
+  const peers = readPeers().map(normalizePeer).filter(Boolean);
   const discovered = [];
   for (const peer of peers.slice(0, 5)) {
     const list = await fetchBootstrap(peer);
@@ -289,9 +303,9 @@ async function relayBootstrap() {
 async function findPeersForModel(modelId) {
   const index = readModelIndex();
   const indexedPeers = parseModelIndexPeers(index, modelId);
-  if (indexedPeers.length) return indexedPeers;
+  if (indexedPeers.length) return indexedPeers.map(normalizePeer).filter(Boolean);
 
-  const peers = readPeers();
+  const peers = readPeers().map(normalizePeer).filter(Boolean);
   if (!peers.length) return [];
   const results = [];
   for (const peer of peers) {
@@ -306,7 +320,7 @@ async function findPeersForModel(modelId) {
 }
 
 async function sendRemotePrompt(peer, payload, timeoutMs = 8000) {
-  if (!peer?.ip) throw new Error('Invalid peer data');
+  if (!normalizePeer(peer)) throw new Error('Invalid peer data');
   const port = peer.port || 7331;
   const url = `http://${peer.ip}:${port}/infer`;
   const controller = new AbortController();
@@ -327,7 +341,7 @@ async function sendRemotePrompt(peer, payload, timeoutMs = 8000) {
 }
 
 async function fetchShardList(peer, modelId, timeoutMs = 5000) {
-  if (!peer?.ip) return [];
+  if (!normalizePeer(peer)) return [];
   const url = `http://${peer.ip}:7331/shards?modelId=${encodeURIComponent(modelId)}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -344,6 +358,7 @@ async function fetchShardList(peer, modelId, timeoutMs = 5000) {
 }
 
 async function downloadShard(peer, shard, timeoutMs = 15000) {
+  if (!normalizePeer(peer)) throw new Error('Invalid peer data');
   const url = `http://${peer.ip}:${peer.port || 7331}/shards/${encodeURIComponent(shard.shardId)}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);

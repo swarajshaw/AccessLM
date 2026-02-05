@@ -136,7 +136,7 @@ export default function DownloadsPage() {
             </div>
           ))}
 
-          {!assets.length && !error && (
+          {release === null && !error && (
             <div className="text-sm text-white/50">
               Loading latest release assets...
             </div>

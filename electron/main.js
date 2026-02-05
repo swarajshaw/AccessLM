@@ -20,8 +20,11 @@ const {
   clearPreferredPeer,
   readCapabilities,
   clearCapabilities,
-  sendRemotePromptWithFallback
+  sendRemotePromptWithFallback,
+  downloadMissingShards,
+  hasAllShards
 } = require('./peers');
+const { splitFileIntoShards, listShardsByModel, assembleShards } = require('./shards');
 const { spawn } = require('child_process');
 
 let currentRuntime = null;
@@ -259,8 +262,49 @@ app.whenReady().then(() => {
     return detected;
   });
 
-  ipcMain.handle('download-model', async (event, modelId) => {
-    return downloadFromHuggingFace(modelId);
+  ipcMain.handle('download-model', async (event, modelId, options = {}) => {
+    const result = await downloadFromHuggingFace(modelId);
+    if (options.autoShard && result?.filePath) {
+      await splitFileIntoShards(modelId, result.filePath, options.chunkSizeMB || 64);
+    }
+    return result;
+  });
+
+  ipcMain.handle('create-shards', async (event, modelId, filePath, chunkSizeMB = 64) => {
+    return splitFileIntoShards(modelId, filePath, chunkSizeMB);
+  });
+
+  ipcMain.handle('list-shards', async (event, modelId) => {
+    return listShardsByModel(modelId);
+  });
+
+  ipcMain.handle('assemble-shards', async (event, modelId, outputPath) => {
+    return assembleShards(modelId, outputPath);
+  });
+
+  ipcMain.handle('sync-shards', async (event, modelId) => {
+    const peers = await findPeersForModel(modelId);
+    if (!peers.length) return { ok: false, error: 'No peers with shards found.' };
+    const downloaded = await downloadMissingShards(peers, modelId);
+    return { ok: true, downloaded };
+  });
+
+  ipcMain.handle('ensure-model-from-shards', async (event, modelId, outputPath) => {
+    const peers = await findPeersForModel(modelId);
+    if (!peers.length) return { ok: false, error: 'No peers with shards found.' };
+    await downloadMissingShards(peers, modelId);
+    if (!hasAllShards(modelId)) {
+      return { ok: false, error: 'Shards incomplete after sync.' };
+    }
+    let targetPath = outputPath;
+    if (!targetPath) {
+      const os = require('os');
+      const dir = path.join(os.homedir(), '.accesslm', 'models', modelId.replace('/', '--'));
+      fs.mkdirSync(dir, { recursive: true });
+      targetPath = path.join(dir, 'assembled.gguf');
+    }
+    const assembled = await assembleShards(modelId, targetPath);
+    return { ok: true, outputPath: assembled };
   });
 
   ipcMain.handle('get-peers', async () => {

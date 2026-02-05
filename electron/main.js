@@ -68,6 +68,15 @@ function assertSafeInputPath(filePath) {
   return resolved;
 }
 
+ipcMain.handle('download-model', async (event, modelId, options = {}) => {
+  const safeModelId = sanitizeModelId(modelId);
+  const result = await downloadFromHuggingFace(safeModelId);
+  if (options.autoShard && result?.filePath) {
+    await splitFileIntoShards(safeModelId, result.filePath, options.chunkSizeMB || 64);
+  }
+  return result;
+});
+
 function findP2PBinary() {
   const candidates = [
     process.env.ACCESSLM_P2P_BIN,
@@ -298,15 +307,6 @@ app.whenReady().then(() => {
     const detected = await detectRuntimes();
     writeAnnouncedModels(detected);
     return detected;
-  });
-
-  ipcMain.handle('download-model', async (event, modelId, options = {}) => {
-    const safeModelId = sanitizeModelId(modelId);
-    const result = await downloadFromHuggingFace(safeModelId);
-    if (options.autoShard && result?.filePath) {
-      await splitFileIntoShards(safeModelId, result.filePath, options.chunkSizeMB || 64);
-    }
-    return result;
   });
 
   ipcMain.handle('create-shards', async (event, modelId, filePath, chunkSizeMB = 64) => {

@@ -80,16 +80,29 @@ export default function DownloadsPage() {
   const fallbackAssets = useMemo(() => FALLBACK_ASSETS, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-3xl mx-auto px-6 py-16">
-        <h1 className="text-3xl font-bold mb-4">Downloads</h1>
-        <p className="text-gray-600 mb-4">
-          Latest builds are pulled directly from GitHub Releases.
-        </p>
+    <div className="min-h-screen bg-[#0b0f17] text-white">
+      <div className="max-w-4xl mx-auto px-6 py-14">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <div className="text-xs uppercase tracking-[0.28em] text-white/40">
+              AccessLM
+            </div>
+            <h1 className="text-3xl font-semibold mt-2">Downloads</h1>
+            <p className="text-white/60 mt-2">
+              Latest builds are pulled directly from GitHub Releases.
+            </p>
+          </div>
+          <a
+            href="/"
+            className="rounded-full border border-white/15 px-4 py-2 text-sm text-white/80 hover:text-white hover:border-white/40"
+          >
+            Back to home
+          </a>
+        </div>
 
         {(release?.html_url || FALLBACK_RELEASE_URL) && (
           <a
-            className="inline-flex items-center text-sm text-blue-700 hover:underline mb-8"
+            className="inline-flex items-center text-sm text-[#22d3ee] hover:underline mb-8"
             href={release?.html_url || FALLBACK_RELEASE_URL}
             target="_blank"
             rel="noreferrer"
@@ -99,23 +112,23 @@ export default function DownloadsPage() {
         )}
 
         {error && assets.length === 0 && (
-          <div className="mb-6 text-sm text-gray-500">
+          <div className="mb-6 text-sm text-white/50">
             Using the latest published release assets.
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="grid gap-4">
           {(assets.length ? assets : fallbackAssets).map((asset) => (
             <div
               key={asset.url}
-              className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between"
+              className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-5 py-4"
             >
               <div>
                 <div className="font-medium">{asset.platform}</div>
-                <div className="text-sm text-gray-500">{asset.name}</div>
+                <div className="text-sm text-white/50">{asset.name}</div>
               </div>
               <a
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
+                className="px-4 py-2 rounded-full bg-[#22d3ee] text-black text-sm font-semibold hover:bg-[#1dbfd6]"
                 href={asset.url}
               >
                 Download
@@ -124,7 +137,9 @@ export default function DownloadsPage() {
           ))}
 
           {!assets.length && !error && (
-            <div className="text-sm text-gray-500">Loading latest release assets...</div>
+            <div className="text-sm text-white/50">
+              Loading latest release assets...
+            </div>
           )}
         </div>
       </div>

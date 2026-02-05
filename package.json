@@ -1,6 +1,6 @@
 {
   "name": "accesslm",
-  "version": "2.1.0",
+  "version": "0.0.1",
   "description": "Run LLMs on any device - No cloud. No login. No cost.",
   "main": "electron/main.js",
   "scripts": {

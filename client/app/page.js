@@ -88,7 +88,7 @@ export default function Home() {
                 </a>
               </div>
               <div className="mt-6 text-xs text-white/50">
-                No login. No tracking. MIT licensed. Built for the public good.
+                No login. No tracking. MIT licensed. Built for open access.
               </div>
             </div>
 
@@ -122,7 +122,7 @@ export default function Home() {
           <div>
             <h2 className="text-3xl font-semibold">Access for everyone, not just GPU owners.</h2>
             <p className="mt-4 text-white/70">
-              AccessLM is a public utility for AI. It lets students, educators, and researchers run powerful models by pooling fragmented resources across peers. No accounts, no tokens, no surveillance.
+              AccessLM is open infrastructure for AI. It lets students, educators, and researchers run powerful models by pooling fragmented resources across peers. No accounts, no tokens, no surveillance.
             </p>
           </div>
           <div className="grid gap-4">
@@ -154,7 +154,7 @@ export default function Home() {
               <a className="rounded-lg border border-white/20 px-4 py-2 hover:border-white/40" href="/downloads">
                 Download the app
               </a>
-              <a className="rounded-lg border border-white/20 px-4 py-2 hover:border-white/40" href="https://github.com/accesslm/accesslm">
+              <a className="rounded-lg border border-white/20 px-4 py-2 hover:border-white/40" href="https://github.com/swarajshaw/AccessLM">
                 Open-source code
               </a>
               <a className="rounded-lg border border-white/20 px-4 py-2 hover:border-white/40" href="/privacy">
@@ -237,7 +237,7 @@ export default function Home() {
 
       <section className="max-w-6xl mx-auto px-6 pb-24">
         <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#1f2937] to-[#0f172a] p-10">
-          <h3 className="text-2xl font-semibold">AccessLM is a public good.</h3>
+          <h3 className="text-2xl font-semibold">AccessLM is open infrastructure.</h3>
           <p className="mt-3 text-white/70 max-w-2xl">
             We are not a startup. We are a community tool that turns idle hardware into shared intelligence. You can contribute, fork, or deploy AccessLM anywhere.
           </p>
@@ -245,7 +245,7 @@ export default function Home() {
             <a className="rounded-xl bg-white text-black px-6 py-3 text-sm font-semibold hover:bg-white/90" href="/downloads">
               Get AccessLM
             </a>
-            <a className="rounded-xl border border-white/20 px-6 py-3 text-sm font-semibold text-white/90 hover:border-white/40" href="https://github.com/accesslm/accesslm">
+            <a className="rounded-xl border border-white/20 px-6 py-3 text-sm font-semibold text-white/90 hover:border-white/40" href="https://github.com/swarajshaw/AccessLM">
               View source
             </a>
           </div>

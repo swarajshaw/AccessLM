@@ -108,6 +108,27 @@ export default function DesktopHome() {
     }
   };
 
+  const fetchModelFromPeers = async (selectedModelId) => {
+    setIsRunning(true);
+    setStatus(`Fetching shards for ${selectedModelId} from peers...`);
+    try {
+      if (!window.electronAPI?.ensureModelFromShards) {
+        setStatus('⚠️ Peer shard sync is only available in the desktop app.');
+        return;
+      }
+      const result = await window.electronAPI.ensureModelFromShards(selectedModelId);
+      if (result?.ok) {
+        setStatus(`✅ Shards assembled at ${result.outputPath}`);
+      } else {
+        setStatus(`⚠️ ${result?.error || 'Unable to assemble shards.'}`);
+      }
+    } catch (error) {
+      setStatus(`❌ Shard error: ${error.message || error}`);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
 
@@ -301,7 +322,9 @@ export default function DesktopHome() {
                     if (window.electronAPI?.downloadModel) {
                       setStatus(`Downloading ${customModel}...`);
                       try {
-                        await window.electronAPI.downloadModel(customModel.trim());
+                        await window.electronAPI.downloadModel(customModel.trim(), {
+                          autoShard: true
+                        });
                         setStatus(`✅ Downloaded ${customModel}`);
                         setModelId(customModel.trim());
                       } catch (err) {
@@ -313,6 +336,16 @@ export default function DesktopHome() {
                   }}
                 >
                   Download
+                </button>
+                <button
+                  className="bg-white/10 text-white px-3 py-2 rounded hover:bg-white/20 text-sm disabled:opacity-50"
+                  disabled={!isDesktopApp}
+                  onClick={() => {
+                    if (!customModel.trim()) return;
+                    fetchModelFromPeers(customModel.trim());
+                  }}
+                >
+                  Fetch from peers
                 </button>
                 <button
                   className="bg-white/10 text-white px-3 py-2 rounded hover:bg-white/20 text-sm disabled:opacity-50"

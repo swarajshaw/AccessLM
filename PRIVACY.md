@@ -40,4 +40,4 @@ Under GDPR Article 6(1)(e) and ePrivacy Directive, AccessLM operates as a **non-
 
 For questions about privacy, contact:  accesslm@protonmail.com
 
-This tool is open source. You can verify every line of code at:  https://github.com/accesslm/accesslm
+This tool is open source. You can verify every line of code at:  https://github.com/swarajshaw/AccessLM

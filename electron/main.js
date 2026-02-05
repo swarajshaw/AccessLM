@@ -20,13 +20,53 @@ const {
   clearPreferredPeer,
   readCapabilities,
   clearCapabilities,
-  sendRemotePromptWithFallback
+  sendRemotePromptWithFallback,
+  downloadMissingShards,
+  hasAllShards
 } = require('./peers');
+const { splitFileIntoShards, listShardsByModel, assembleShards } = require('./shards');
 const { spawn } = require('child_process');
 
 let currentRuntime = null;
 let currentModel = null;
 let p2pProcess = null;
+
+function sanitizeModelId(modelId) {
+  return String(modelId || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function getSafeModelDir(modelId) {
+  const os = require('os');
+  const safeId = sanitizeModelId(modelId);
+  const dir = path.join(os.homedir(), '.accesslm', 'models', safeId);
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function assertSafeOutputPath(filePath) {
+  const os = require('os');
+  const baseDir = path.join(os.homedir(), '.accesslm', 'models');
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(baseDir)) {
+    throw new Error('Invalid output path');
+  }
+  return resolved;
+}
+
+function assertSafeInputPath(filePath) {
+  const os = require('os');
+  const baseDir = path.join(os.homedir(), '.accesslm', 'models');
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(baseDir)) {
+    throw new Error('Invalid input path');
+  }
+  if (!resolved.endsWith('.gguf')) {
+    throw new Error('Only GGUF files are supported');
+  }
+  return resolved;
+}
 
 function findP2PBinary() {
   const candidates = [
@@ -149,8 +189,9 @@ app.whenReady().then(() => {
     
     try {
       const detected = await detectRuntimes();
+      const safeModelId = sanitizeModelId(modelId);
       currentRuntime = chooseRuntime(options.runtime, detected);
-      currentModel = modelId;
+      currentModel = safeModelId;
       writeAnnouncedModels(detected);
 
       if (!currentRuntime) {
@@ -259,8 +300,54 @@ app.whenReady().then(() => {
     return detected;
   });
 
-  ipcMain.handle('download-model', async (event, modelId) => {
-    return downloadFromHuggingFace(modelId);
+  ipcMain.handle('download-model', async (event, modelId, options = {}) => {
+    const safeModelId = sanitizeModelId(modelId);
+    const result = await downloadFromHuggingFace(safeModelId);
+    if (options.autoShard && result?.filePath) {
+      await splitFileIntoShards(safeModelId, result.filePath, options.chunkSizeMB || 64);
+    }
+    return result;
+  });
+
+  ipcMain.handle('create-shards', async (event, modelId, filePath, chunkSizeMB = 64) => {
+    const safeModelId = sanitizeModelId(modelId);
+    const safePath = assertSafeInputPath(filePath);
+    return splitFileIntoShards(safeModelId, safePath, chunkSizeMB);
+  });
+
+  ipcMain.handle('list-shards', async (event, modelId) => {
+    return listShardsByModel(sanitizeModelId(modelId));
+  });
+
+  ipcMain.handle('assemble-shards', async (event, modelId, outputPath) => {
+    const safeModelId = sanitizeModelId(modelId);
+    const targetPath = outputPath
+      ? assertSafeOutputPath(outputPath)
+      : path.join(getSafeModelDir(safeModelId), 'assembled.gguf');
+    return assembleShards(safeModelId, targetPath);
+  });
+
+  ipcMain.handle('sync-shards', async (event, modelId) => {
+    const safeModelId = sanitizeModelId(modelId);
+    const peers = await findPeersForModel(safeModelId);
+    if (!peers.length) return { ok: false, error: 'No peers with shards found.' };
+    const downloaded = await downloadMissingShards(peers, safeModelId);
+    return { ok: true, downloaded };
+  });
+
+  ipcMain.handle('ensure-model-from-shards', async (event, modelId, outputPath) => {
+    const safeModelId = sanitizeModelId(modelId);
+    const peers = await findPeersForModel(safeModelId);
+    if (!peers.length) return { ok: false, error: 'No peers with shards found.' };
+    await downloadMissingShards(peers, safeModelId);
+    if (!hasAllShards(safeModelId)) {
+      return { ok: false, error: 'Shards incomplete after sync.' };
+    }
+    const targetPath = outputPath
+      ? assertSafeOutputPath(outputPath)
+      : path.join(getSafeModelDir(safeModelId), 'assembled.gguf');
+    const assembled = await assembleShards(safeModelId, targetPath);
+    return { ok: true, outputPath: assembled };
   });
 
   ipcMain.handle('get-peers', async () => {

@@ -10,7 +10,7 @@ It works by splitting the model across peers in a decentralized network — just
 
 Built on [libp2p](https://libp2p.io/) and [Hugging Face Hub](https://huggingface.co/) — the open-source P2P framework used by researchers worldwide.
 
-This is not a startup. This is not a company. This is **a public good** — built by students, for students.
+This is not a startup. This is not a company. This is open infrastructure for shared compute.
 
 **You are not a customer. You are a co-owner.**
 

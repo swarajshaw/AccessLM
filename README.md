@@ -89,8 +89,8 @@ Notes:
 
 ## 📬 Contribute
 
-Found a bug? Want to add a new feature? Open an issue or PR on GitHub:  
-👉 https://github.com/accesslm/accesslm
+Found a bug? Want to add a new feature? Open an issue or PR on GitHub:
+👉 https://github.com/swarajshaw/AccessLM
 
 This project belongs to everyone.
 

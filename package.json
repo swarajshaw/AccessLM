@@ -9,6 +9,7 @@
     "dev:electron": "cd electron && electron .",
     "p2p:build": "cd backend && cargo build --bin accesslm-p2p",
     "p2p:dev": "cd backend && cargo run --bin accesslm-p2p",
+    "bundle:llama-cpp-python:mac": "bash scripts/bundle-llama-cpp-python-macos.sh",
     "build": "cd client && npm run build && node ../scripts/postbuild-copy-assets.js",
     "build:electron": "npm run build && cd electron && npm run build",
     "pack": "npm run build && electron-builder --dir",
@@ -56,6 +57,11 @@
       {
         "from": "public/",
         "to": "assets/",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "electron/resources/python/",
+        "to": "python/",
         "filter": ["**/*"]
       }
     ],

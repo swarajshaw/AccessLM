@@ -98,9 +98,9 @@ export default function DownloadsPage() {
           </a>
         )}
 
-        {error && (
-          <div className="mb-6 text-sm text-red-600">
-            {error}
+        {error && assets.length === 0 && (
+          <div className="mb-6 text-sm text-gray-500">
+            Using the latest published release assets.
           </div>
         )}
 

@@ -156,20 +156,35 @@ async function downloadFromHuggingFace(modelId) {
   ensureDir(modelDir);
   const filePath = path.join(modelDir, preferred);
 
-  await new Promise((resolve, reject) => {
+  const downloadWithRedirects = (url, redirects = 0) => new Promise((resolve, reject) => {
+    if (redirects > 5) {
+      reject(new Error('Download failed: too many redirects'));
+      return;
+    }
     const file = fs.createWriteStream(filePath);
-    https.get(downloadUrl, (response) => {
+    https.get(url, (response) => {
+      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        file.close(() => {});
+        fs.unlinkSync(filePath);
+        downloadWithRedirects(response.headers.location, redirects + 1).then(resolve).catch(reject);
+        return;
+      }
       if (response.statusCode !== 200) {
+        file.close(() => {});
+        fs.unlinkSync(filePath);
         reject(new Error(`Download failed: ${response.statusCode}`));
         return;
       }
       response.pipe(file);
       file.on('finish', () => file.close(resolve));
     }).on('error', (err) => {
+      file.close(() => {});
       fs.unlinkSync(filePath);
       reject(err);
     });
   });
+
+  await downloadWithRedirects(downloadUrl);
 
   const registry = readRegistry();
   registry[modelId] = filePath;

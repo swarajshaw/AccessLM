@@ -118,22 +118,26 @@ function findP2PBinary() {
 }
 
 function startP2PNode() {
-  const binPath = findP2PBinary();
-  if (!binPath) {
-    console.warn('P2P node binary not found. Run `cargo build --bin accesslm-p2p` in backend.');
+  return (async () => {
+    const binPath = findP2PBinary();
+    if (!binPath) {
+      console.warn('P2P node binary not found. Run `cargo build --bin accesslm-p2p` in backend.');
+      return null;
+    }
+    const port = await findAvailablePort(Number(process.env.ACCESSLM_P2P_PORT) || 7332, 20);
+    const env = {
+      ...process.env,
+      ACCESSLM_P2P_PORT: String(port)
+    };
+    const proc = spawn(binPath, [], { env, stdio: 'inherit' });
+    proc.on('exit', (code) => {
+      console.warn(`P2P node exited with code ${code}`);
+    });
+    return proc;
+  })().catch((error) => {
+    console.warn('Failed to start P2P node:', error);
     return null;
-  }
-
-  const env = {
-    ...process.env,
-    ACCESSLM_P2P_PORT: process.env.ACCESSLM_P2P_PORT || '7332'
-  };
-
-  const proc = spawn(binPath, [], { env, stdio: 'inherit' });
-  proc.on('exit', (code) => {
-    console.warn(`P2P node exited with code ${code}`);
   });
-  return proc;
 }
 
 function announcePath() {
@@ -220,7 +224,7 @@ app.whenReady().then(async () => {
   } catch (error) {
     console.warn('Failed to start peer server:', error);
   }
-  p2pProcess = startP2PNode();
+  p2pProcess = await startP2PNode();
   setInterval(() => {
     refreshPeerHealth().catch(() => {});
     relayBootstrap().catch(() => {});
